@@ -52,12 +52,22 @@
       delay: 10
       until: apt_install_result is success
 
-    - name: Install Node.js repository
-      shell: |
-        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
-        apt-get install -y nodejs
-      args:
-        warn: false
+    - name: Download Node.js setup script
+      get_url:
+        url: "https://deb.nodesource.com/setup_{{ node_version }}.x"
+        dest: /tmp/nodesource_setup.sh
+        mode: '0755'
+
+    - name: Run Node.js setup script
+      command: /tmp/nodesource_setup.sh
+      register: node_setup
+      changed_when: node_setup.rc == 0
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
 
     - name: Add Docker GPG key
       apt_key:
@@ -162,6 +172,13 @@
         state: present
       become: yes
       become_user: "{{ ansible_user }}"
+
+    - name: Install Tailwind CSS globally
+      npm:
+        name: tailwindcss
+        global: yes
+        state: present
+      become: yes
 
     - name: Build the CSS
       shell: |
