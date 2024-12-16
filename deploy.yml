@@ -1,40 +1,41 @@
 ---
 - name: Deploy Node.js Environment App
   hosts: localhost
-  become: yes
-  become_method: sudo
+  connection: local
   vars:
     app_dir: "/home/devops/app"
     repo_url: "https://github.com/Usama306/FYP-DevOps.git"
-    ansible_become_pass: "{{ lookup('env', 'ANSIBLE_BECOME_PASS') }}"
 
   tasks:
-    - name: Install required system packages
-      apt:
-        name: "{{ item }}"
-        state: present
-        update_cache: yes
+    - name: Check if packages are installed
+      command: "which {{ item }}"
+      register: pkg_check
+      ignore_errors: yes
+      changed_when: false
+      loop:
+        - git
+        - nodejs
+        - npm
+        - docker
+        - docker-compose
+
+    - name: Install missing packages
+      shell: |
+        sudo -n apt update
+        sudo -n apt install -y {{ item }}
+      when: pkg_check.results[ansible_loop.index0].rc != 0
       loop:
         - git
         - nodejs
         - npm
         - docker.io
         - docker-compose
-      when: ansible_os_family == "Debian"
-
-    - name: Ensure Docker service is running
-      service:
-        name: docker
-        state: started
-        enabled: yes
 
     - name: Create app directory if it doesn't exist
       file:
         path: "{{ app_dir }}"
         state: directory
         mode: '0755'
-        owner: jenkins
-        group: jenkins
 
     - name: Pull latest code from GitHub
       git:
@@ -43,36 +44,21 @@
         update: yes
         force: yes
 
-    - name: Set permissions for app directory
+    - name: Create public directory
       file:
-        path: "{{ app_dir }}"
+        path: "{{ app_dir }}/app/public"
         state: directory
-        recurse: yes
-        owner: jenkins
-        group: jenkins
         mode: '0755'
 
     - name: Install Node.js dependencies
       npm:
         path: "{{ app_dir }}/app"
         state: present
-      become: yes
-      become_user: jenkins
-
-    - name: Create public directory with correct permissions
-      file:
-        path: "{{ app_dir }}/app/public"
-        state: directory
-        mode: '0755'
-        owner: jenkins
-        group: jenkins
 
     - name: Build the CSS
       command: npm run build:css
       args:
         chdir: "{{ app_dir }}/app"
-      become: yes
-      become_user: jenkins
 
     - name: Stop existing Docker containers
       command: docker compose down

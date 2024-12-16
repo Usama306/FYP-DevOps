@@ -3,27 +3,15 @@ pipeline {
 
     environment {
         DOCKER_GROUP = sh(script: 'getent group docker | cut -d: -f3', returnStdout: true).trim()
-        ANSIBLE_BECOME_PASS = credentials('jenkins-sudo-password')
     }
 
     stages {
-        stage('Setup Permissions') {
-            steps {
-                echo 'Setting up Jenkins permissions...'
-                sh '''
-                    # Add NOPASSWD sudo permissions for Jenkins
-                    echo "jenkins ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/jenkins
-                    sudo chmod 440 /etc/sudoers.d/jenkins
-                '''
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 echo 'Installing Ansible and dependencies...'
                 sh '''
                     # Install Ansible if not present
-                    which ansible || sudo -E apt update && sudo -E apt install -y ansible
+                    ansible --version || sudo -n apt update && sudo -n apt install -y ansible
                     
                     # Install required Ansible collections
                     ansible-galaxy collection install community.docker || true
@@ -43,9 +31,9 @@ pipeline {
                 echo 'Setting up Docker permissions...'
                 sh '''
                     # Add jenkins user to docker group if not already added
-                    sudo usermod -aG docker jenkins || true
+                    id -nG | grep -q docker || sudo -n usermod -aG docker jenkins
                     # Ensure Docker socket has correct permissions
-                    sudo chmod 666 /var/run/docker.sock || true
+                    [ -w /var/run/docker.sock ] || sudo -n chmod 666 /var/run/docker.sock
                 '''
             }
         }
@@ -53,39 +41,29 @@ pipeline {
         stage('Ansible Deploy') {
             steps {
                 echo 'Running Ansible playbook...'
-                withEnv(['ANSIBLE_HOST_KEY_CHECKING=False']) {
-                    sh '''
-                        # Create ansible config if it doesn't exist
-                        cat > ansible.cfg << EOF
+                sh '''
+                    # Create ansible config
+                    cat > ansible.cfg << EOF
 [defaults]
 host_key_checking = False
 deprecation_warnings = False
 interpreter_python = /usr/bin/python3
 stdout_callback = yaml
+ansible_connection = local
 
 [privilege_escalation]
-become = True
-become_method = sudo
-become_user = root
-become_ask_pass = False
+become = False
 EOF
 
-                        # Create inventory file
-                        cat > inventory.ini << EOF
+                    # Create inventory file
+                    cat > inventory.ini << EOF
 [local]
 localhost ansible_connection=local
-
-[local:vars]
-ansible_python_interpreter=/usr/bin/python3
-ansible_become=yes
-ansible_become_method=sudo
-ansible_become_user=root
 EOF
 
-                        # Run Ansible playbook
-                        ANSIBLE_CONFIG=ansible.cfg ansible-playbook -i inventory.ini deploy.yml
-                    '''
-                }
+                    # Run Ansible playbook
+                    ansible-playbook -i inventory.ini deploy.yml
+                '''
             }
         }
 
@@ -95,6 +73,9 @@ EOF
                 script {
                     // Check container status
                     sh 'docker ps'
+                    
+                    // Wait for services to be ready
+                    sh 'sleep 10'
                     
                     // Verify endpoints
                     def environments = [
