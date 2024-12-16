@@ -11,6 +11,7 @@ services:
     volumes:
       - ./app:/usr/src/app
       - dev_node_modules:/usr/src/app/node_modules
+      - dev_public:/usr/src/app/public
     working_dir: /usr/src/app
     user: "node"
     command: npm start
@@ -29,6 +30,7 @@ services:
     volumes:
       - ./app:/usr/src/app
       - test_node_modules:/usr/src/app/node_modules
+      - test_public:/usr/src/app/public
     working_dir: /usr/src/app
     user: "node"
     command: npm test
@@ -47,6 +49,7 @@ services:
     volumes:
       - ./app:/usr/src/app
       - prod_node_modules:/usr/src/app/node_modules
+      - prod_public:/usr/src/app/public
     working_dir: /usr/src/app
     user: "node"
     command: node server.js
@@ -64,4 +67,10 @@ volumes:
   test_node_modules:
     driver: local
   prod_node_modules:
+    driver: local
+  dev_public:
+    driver: local
+  test_public:
+    driver: local
+  prod_public:
     driver: local

@@ -5,21 +5,21 @@ WORKDIR /usr/src/app
 # Install global packages
 RUN npm install -g tailwindcss postcss autoprefixer nodemon
 
-# Create necessary directories
-RUN mkdir -p public src/styles
+# Create necessary directories with correct permissions
+RUN mkdir -p public src/styles && \
+    chown -R node:node /usr/src/app
 
 # Copy package files first
-COPY app/package*.json ./
+COPY --chown=node:node app/package*.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy app directory contents (excluding node_modules)
-COPY app/ .
+COPY --chown=node:node app/ .
 
 # Build CSS
-RUN npm run build:css && \
-    chown -R node:node /usr/src/app
+RUN npm run build:css
 
 # Switch to node user
 USER node
