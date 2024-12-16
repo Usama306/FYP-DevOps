@@ -44,6 +44,22 @@ pipeline {
             }
         }
 
+        stage('Pre-check Remote Server') {
+            steps {
+                echo 'Checking remote server access...'
+                sh '''
+                    # Test SSH connection
+                    sshpass -p "dev" ssh -p ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST} "echo 'SSH connection successful'"
+                    
+                    # Check if any apt process is running
+                    sshpass -p "dev" ssh -p ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST} "ps aux | grep -i apt"
+                    
+                    # Check available disk space
+                    sshpass -p "dev" ssh -p ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST} "df -h"
+                '''
+            }
+        }
+
         stage('Ansible Deploy') {
             steps {
                 echo 'Running Ansible playbook...'
@@ -57,6 +73,7 @@ interpreter_python = /usr/bin/python3
 stdout_callback = yaml
 remote_tmp = /tmp/.ansible-${USER}/tmp
 allow_world_readable_tmpfiles = true
+command_warnings = False
 
 [privilege_escalation]
 become = true
