@@ -15,6 +15,12 @@ pipeline {
                     
                     # Install required Ansible collections
                     ansible-galaxy collection install community.docker || true
+
+                    # Install Docker Compose if not present
+                    if ! command -v docker-compose &> /dev/null; then
+                        sudo -n curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+                        sudo -n chmod +x /usr/local/bin/docker-compose
+                    fi
                 '''
             }
         }
@@ -62,7 +68,7 @@ localhost ansible_connection=local
 EOF
 
                     # Run Ansible playbook
-                    ansible-playbook -i inventory.ini deploy.yml
+                    ansible-playbook -i inventory.ini deploy.yml -vv
                 '''
             }
         }

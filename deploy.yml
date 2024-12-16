@@ -5,31 +5,22 @@
   vars:
     app_dir: "/home/devops/app"
     repo_url: "https://github.com/Usama306/FYP-DevOps.git"
+    packages:
+      - git
+      - nodejs
+      - npm
+      - docker.io
+      - docker-compose
 
   tasks:
-    - name: Check if packages are installed
-      command: "which {{ item }}"
-      register: pkg_check
-      ignore_errors: yes
-      changed_when: false
-      loop:
-        - git
-        - nodejs
-        - npm
-        - docker
-        - docker-compose
-
-    - name: Install missing packages
+    - name: Install required packages
       shell: |
-        sudo -n apt update
-        sudo -n apt install -y {{ item }}
-      when: pkg_check.results[ansible_loop.index0].rc != 0
-      loop:
-        - git
-        - nodejs
-        - npm
-        - docker.io
-        - docker-compose
+        if ! command -v {{ item }} &> /dev/null; then
+          sudo -n apt update
+          sudo -n apt install -y {{ item }}
+        fi
+      loop: "{{ packages }}"
+      ignore_errors: yes
 
     - name: Create app directory if it doesn't exist
       file:
