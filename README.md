@@ -1,98 +1,183 @@
-# Environment-Specific Landing Pages
+# Node.js Multi-Environment Application with CI/CD Pipeline
 
-A Node.js application that demonstrates different landing pages for development, test, and production environments using Docker containers.
+This project is a Node.js application deployed across multiple environments (Development, Test, and Production) using Docker containers and automated CI/CD pipeline with Jenkins and Ansible.
 
-## Features
+## Architecture Overview
 
-- Different themed pages for each environment (Development, Test, Production)
-- Docker containerization with environment isolation
-- Particle.js background effects
-- Tailwind CSS for styling
-- Environment-specific configurations
+- **Application**: Node.js web application
+- **Containerization**: Docker with multi-environment setup
+- **CI/CD**: Jenkins Pipeline
+- **Configuration Management**: Ansible
+- **Environments**: Development, Test, and Production
 
 ## Prerequisites
 
+- Jenkins server with following plugins:
+  - Pipeline
+  - Git
+  - Ansible
+  - SSH
 - Docker
-- Docker Compose
+- Ansible
+- SSH access to deployment server
+- Git
 
-## Quick Start
+## Environment Setup
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Usama306/FYP-DevOps.git
-cd FYP-DevOps
+The application runs in three separate environments:
+
+1. **Development** (Port: 3001)
+2. **Test** (Port: 3002)
+3. **Production** (Port: 3003)
+
+Each environment runs in its own Docker container with isolated configurations.
+
+## Deployment Architecture
+
 ```
-
-2. Start the environments:
-
-Development:
-```bash
-docker compose up dev
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Jenkins CI    │────▶│     Ansible     │────▶│  Docker Hosts   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                                               │
+        │                                               │
+        ▼                                               ▼
+┌─────────────────┐                           ┌─────────────────┐
+│  GitHub Repo    │                           │   Containers    │
+└─────────────────┘                           │  - Dev  (3001)  │
+                                             │  - Test (3002)  │
+                                             │  - Prod (3003)  │
+                                             └─────────────────┘
 ```
-
-Test:
-```bash
-docker compose up test
-```
-
-Production:
-```bash
-docker compose up prod
-```
-
-Or start all environments:
-```bash
-docker compose up
-```
-
-3. Access the environments:
-- Development: http://localhost:3001
-- Test: http://localhost:3002
-- Production: http://localhost:3003
-
-## Environment Details
-
-### Development (Blue Theme)
-- PORT: 3001
-- Features development-specific UI
-- Hot-reloading enabled
-
-### Test (Yellow Theme)
-- PORT: 3002
-- Testing environment configuration
-- Isolated test setup
-
-### Production (Green Theme)
-- PORT: 3003
-- Production-ready configuration
-- Optimized for deployment
 
 ## Project Structure
 
 ```
 .
 ├── app/
-│   ├── public/
 │   ├── src/
-│   │   └── styles/
+│   ├── public/
 │   ├── views/
-│   ├── server.js
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── postcss.config.js
+│   └── package.json
+├── Dockerfile
 ├── docker-compose.yml
-└── Dockerfile
+├── Jenkinsfile
+├── deploy.yml
+└── README.md
 ```
 
-## Technologies Used
+## CI/CD Pipeline Stages
 
-- Node.js
-- Express.js
-- EJS Templates
-- Tailwind CSS
-- Docker
-- Particles.js
+1. **Install Dependencies**
+   - Installs required tools (Ansible, sshpass)
+   - Sets up Ansible collections
+
+2. **Clone Code**
+   - Clones the repository from GitHub
+
+3. **Setup SSH Config**
+   - Configures SSH for remote server access
+
+4. **Pre-check Remote Server**
+   - Verifies SSH connectivity
+   - Checks system resources
+   - Validates prerequisites
+
+5. **Ansible Deploy**
+   - Installs and configures Docker
+   - Builds and deploys containers
+   - Sets up networking and permissions
+
+6. **Verify Deployment**
+   - Checks container status
+   - Verifies endpoint accessibility
+   - Validates external access
+
+## Deployment Process
+
+1. **Local Development**:
+   ```bash
+   docker compose up -d
+   ```
+
+2. **Jenkins Pipeline**:
+   - Push changes to GitHub
+   - Jenkins automatically triggers the pipeline
+   - Access Jenkins at: `http://your-jenkins-server:8080`
+
+3. **Manual Deployment**:
+   ```bash
+   ansible-playbook -i inventory.ini deploy.yml
+   ```
+
+## Environment URLs
+
+- Development: `http://worker:3001`
+- Test: `http://worker:3002`
+- Production: `http://worker:3003`
+
+## Monitoring and Logs
+
+- **Container Logs**:
+  ```bash
+  docker logs dev_env   # Development environment
+  docker logs test_env  # Test environment
+  docker logs prod_env  # Production environment
+  ```
+
+- **Application Status**:
+  ```bash
+  docker ps  # Check running containers
+  ```
+
+## Troubleshooting
+
+1. **Permission Issues**:
+   ```bash
+   sudo chown -R dev:dev /home/dev/app
+   ```
+
+2. **Docker Issues**:
+   ```bash
+   sudo systemctl restart docker
+   docker compose down && docker compose up -d
+   ```
+
+3. **Network Issues**:
+   ```bash
+   nc -zv localhost 3001  # Test port connectivity
+   ```
+
+## Security Considerations
+
+- SSH keys for authentication
+- Docker security best practices
+- Environment-specific configurations
+- Secure credential management
+- Regular security updates
+
+## Backup and Recovery
+
+1. **Container Data**:
+   ```bash
+   docker commit container_name backup_image
+   ```
+
+2. **Application Data**:
+   - Regular backups of application state
+   - Version control for configurations
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-MIT 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions, please open an issue in the GitHub repository. 
