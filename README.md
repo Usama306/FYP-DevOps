@@ -19,8 +19,8 @@ A Node.js application that demonstrates different landing pages for development,
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/Usama306/FYP-DevOps.git
+cd FYP-DevOps
 ```
 
 2. Start the environments:
