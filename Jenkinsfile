@@ -30,10 +30,10 @@ pipeline {
                 echo 'Building and starting Docker containers...'
                 script {
                     // Stop any existing containers
-                    sh 'docker-compose down || true'
+                    sh 'docker compose down || true'
                     
                     // Build and start new containers
-                    sh 'docker-compose up -d --build'
+                    sh 'docker compose up -d --build'
                 }
             }
         }
