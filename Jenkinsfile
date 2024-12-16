@@ -3,6 +3,9 @@ pipeline {
 
     environment {
         DOCKER_GROUP = sh(script: 'getent group docker | cut -d: -f3', returnStdout: true).trim()
+        REMOTE_HOST = 'pve.netbird.cloud'
+        REMOTE_USER = 'dev'
+        REMOTE_PORT = '2222'
     }
 
     stages {
@@ -11,16 +14,10 @@ pipeline {
                 echo 'Installing Ansible and dependencies...'
                 sh '''
                     # Install Ansible if not present
-                    ansible --version || sudo -n apt update && sudo -n apt install -y ansible
+                    ansible --version || sudo -n apt update && sudo -n apt install -y ansible sshpass
                     
                     # Install required Ansible collections
                     ansible-galaxy collection install community.docker || true
-
-                    # Install Docker Compose if not present
-                    if ! command -v docker-compose &> /dev/null; then
-                        sudo -n curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-                        sudo -n chmod +x /usr/local/bin/docker-compose
-                    fi
                 '''
             }
         }
@@ -32,14 +29,15 @@ pipeline {
             }
         }
 
-        stage('Docker Permissions') {
+        stage('Setup SSH Config') {
             steps {
-                echo 'Setting up Docker permissions...'
+                echo 'Setting up SSH configuration...'
                 sh '''
-                    # Add jenkins user to docker group if not already added
-                    id -nG | grep -q docker || sudo -n usermod -aG docker jenkins
-                    # Ensure Docker socket has correct permissions
-                    [ -w /var/run/docker.sock ] || sudo -n chmod 666 /var/run/docker.sock
+                    mkdir -p ~/.ssh
+                    echo "Host ${REMOTE_HOST}
+                        Port ${REMOTE_PORT}
+                        StrictHostKeyChecking no
+                        UserKnownHostsFile=/dev/null" > ~/.ssh/config
                 '''
             }
         }
@@ -55,20 +53,24 @@ host_key_checking = False
 deprecation_warnings = False
 interpreter_python = /usr/bin/python3
 stdout_callback = yaml
-ansible_connection = local
+remote_tmp = /tmp/.ansible-${USER}/tmp
 
-[privilege_escalation]
-become = False
+[ssh_connection]
+pipelining = True
 EOF
 
                     # Create inventory file
                     cat > inventory.ini << EOF
-[local]
-localhost ansible_connection=local
+[remote]
+${REMOTE_HOST} ansible_port=${REMOTE_PORT} ansible_user=${REMOTE_USER} ansible_password=dev
+
+[remote:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
 EOF
 
-                    # Run Ansible playbook
-                    ansible-playbook -i inventory.ini deploy.yml -vv
+                    # Run Ansible playbook with verbose output
+                    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini deploy.yml -vv
                 '''
             }
         }
@@ -77,11 +79,8 @@ EOF
             steps {
                 echo 'Verifying deployment...'
                 script {
-                    // Check container status
-                    sh 'docker ps'
-                    
                     // Wait for services to be ready
-                    sh 'sleep 10'
+                    sh 'sleep 30'
                     
                     // Verify endpoints
                     def environments = [
@@ -93,7 +92,7 @@ EOF
                     environments.each { env ->
                         try {
                             def response = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:${env.port}",
+                                script: "curl -s -o /dev/null -w '%{http_code}' ${REMOTE_HOST}:${env.port}",
                                 returnStdout: true
                             ).trim()
                             
