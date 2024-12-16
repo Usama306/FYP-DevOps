@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = '/home/devops/app'
+        APP_DIR = "${WORKSPACE}"
     }
 
     stages {
@@ -17,8 +17,12 @@ pipeline {
             steps {
                 echo 'Building and starting Docker containers...'
                 script {
-                    sh "cd ${APP_DIR} && docker-compose down"
-                    sh "cd ${APP_DIR} && docker-compose up -d --build"
+                    sh 'sudo usermod -aG docker jenkins || true'
+                    sh 'sudo chmod 666 /var/run/docker.sock || true'
+                    
+                    sh 'docker-compose down || true'
+                    
+                    sh 'docker-compose up -d --build'
                 }
             }
         }
