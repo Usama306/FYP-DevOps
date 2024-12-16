@@ -2,6 +2,8 @@
 - name: Deploy Node.js Environment App
   hosts: remote
   become: yes
+  become_method: sudo
+  gather_facts: yes
   vars:
     app_dir: "/home/dev/app"
     repo_url: "https://github.com/Usama306/FYP-DevOps.git"
@@ -19,30 +21,35 @@
       apt:
         update_cache: yes
       become: yes
+      become_method: sudo
 
     - name: Install required packages
       apt:
         name: "{{ packages }}"
         state: present
       become: yes
+      become_method: sudo
 
     - name: Add Docker GPG key
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
       become: yes
+      become_method: sudo
 
     - name: Add Docker repository
       apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
         state: present
       become: yes
+      become_method: sudo
 
     - name: Install Docker
       apt:
         name: docker-ce
         state: present
       become: yes
+      become_method: sudo
 
     - name: Install Docker Compose
       get_url:
@@ -50,6 +57,7 @@
         dest: /usr/local/bin/docker-compose
         mode: '0755'
       become: yes
+      become_method: sudo
 
     - name: Add user to docker group
       user:
@@ -57,6 +65,7 @@
         groups: docker
         append: yes
       become: yes
+      become_method: sudo
 
     - name: Create app directory if it doesn't exist
       file:
@@ -65,6 +74,8 @@
         mode: '0755'
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
+      become: yes
+      become_method: sudo
 
     - name: Pull latest code from GitHub
       git:
@@ -73,6 +84,16 @@
         update: yes
         force: yes
 
+    - name: Set directory permissions
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        recurse: yes
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      become: yes
+      become_method: sudo
+
     - name: Create public directory
       file:
         path: "{{ app_dir }}/app/public"
@@ -80,27 +101,37 @@
         mode: '0755'
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
+      become: yes
+      become_method: sudo
 
     - name: Install Node.js dependencies
       npm:
         path: "{{ app_dir }}/app"
         state: present
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Build the CSS
       command: npm run build:css
       args:
         chdir: "{{ app_dir }}/app"
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Stop existing Docker containers
       command: docker compose down
       args:
         chdir: "{{ app_dir }}"
       ignore_errors: yes
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Build and start Docker containers
       command: docker compose up -d --build
       args:
         chdir: "{{ app_dir }}"
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Wait for containers to be running
       wait_for:
@@ -109,6 +140,8 @@
     - name: Check container status
       command: docker ps
       register: container_status
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Display container status
       debug:

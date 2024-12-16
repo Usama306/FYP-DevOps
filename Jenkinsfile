@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_GROUP = sh(script: 'getent group docker | cut -d: -f3', returnStdout: true).trim()
         REMOTE_HOST = 'pve.netbird.cloud'
         REMOTE_USER = 'dev'
         REMOTE_PORT = '2222'
+        ANSIBLE_HOST_KEY_CHECKING = 'False'
+        ANSIBLE_BECOME_ASK_PASS = 'False'
     }
 
     stages {
@@ -38,6 +39,7 @@ pipeline {
                         Port ${REMOTE_PORT}
                         StrictHostKeyChecking no
                         UserKnownHostsFile=/dev/null" > ~/.ssh/config
+                    chmod 600 ~/.ssh/config
                 '''
             }
         }
@@ -54,6 +56,12 @@ deprecation_warnings = False
 interpreter_python = /usr/bin/python3
 stdout_callback = yaml
 remote_tmp = /tmp/.ansible-${USER}/tmp
+allow_world_readable_tmpfiles = true
+
+[privilege_escalation]
+become = true
+become_method = sudo
+become_ask_pass = false
 
 [ssh_connection]
 pipelining = True
@@ -67,10 +75,17 @@ ${REMOTE_HOST} ansible_port=${REMOTE_PORT} ansible_user=${REMOTE_USER} ansible_p
 [remote:vars]
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_become=yes
+ansible_become_method=sudo
+ansible_become_pass=dev
+ansible_sudo_pass=dev
 EOF
 
+                    # Set correct permissions for inventory file
+                    chmod 600 inventory.ini
+                    
                     # Run Ansible playbook with verbose output
-                    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini deploy.yml -vv
+                    ANSIBLE_HOST_KEY_CHECKING=False ANSIBLE_BECOME_ASK_PASS=False ansible-playbook -i inventory.ini deploy.yml -vv
                 '''
             }
         }
