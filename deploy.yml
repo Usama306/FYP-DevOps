@@ -218,14 +218,31 @@
 
     - name: Display endpoint status
       debug:
-        msg: "{{ item.env }} environment (Port {{ item.port }}) status: {{ curl_result.results[ansible_loop.index0].stdout }}"
-      loop:
-        - { port: 3001, env: "Development" }
-        - { port: 3002, env: "Test" }
-        - { port: 3003, env: "Production" }
+        msg: "{{ item.item.env }} environment (Port {{ item.item.port }}) status: {{ item.stdout }}"
+      loop: "{{ curl_result.results }}"
       ignore_errors: yes
 
     - name: Set deployment status
       set_fact:
-        deployment_success: true
-      when: curl_result.results | map(attribute='stdout') | map('regex_replace', '^(.*)$', '\1') | list | join(',') is search('200')
+        deployment_success: "{{ curl_result.results | map(attribute='stdout') | select('eq', '200') | list | length == 3 }}"
+
+    - name: Verify external access
+      shell: |
+        nc -zv 0.0.0.0 {{ item.port }} 2>&1 || exit 1
+      loop:
+        - { port: 3001, env: "Development" }
+        - { port: 3002, env: "Test" }
+        - { port: 3003, env: "Production" }
+      register: port_check
+      ignore_errors: yes
+
+    - name: Display external access status
+      debug:
+        msg: "{{ item.item.env }} environment (Port {{ item.item.port }}) is {{ 'accessible' if item.rc == 0 else 'not accessible' }}"
+      loop: "{{ port_check.results }}"
+      ignore_errors: yes
+
+    - name: Fail if deployment is not successful
+      fail:
+        msg: "Deployment verification failed. Please check the logs."
+      when: not deployment_success

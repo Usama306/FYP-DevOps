@@ -114,7 +114,7 @@ EOF
                     // Wait for services to be ready
                     sh 'sleep 30'
                     
-                    // Verify endpoints
+                    // Verify endpoints using SSH to check locally on the remote server
                     def environments = [
                         [port: 3001, name: 'Development'],
                         [port: 3002, name: 'Test'],
@@ -124,17 +124,41 @@ EOF
                     environments.each { env ->
                         try {
                             def response = sh(
-                                script: "curl -s -o /dev/null -w '%{http_code}' ${REMOTE_HOST}:${env.port}",
+                                script: """
+                                    sshpass -p "dev" ssh -p ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST} \
+                                    "curl -s -o /dev/null -w '%{http_code}' http://localhost:${env.port}"
+                                """,
                                 returnStdout: true
                             ).trim()
                             
                             if (response == "200") {
                                 echo "${env.name} environment is accessible on port ${env.port}"
                             } else {
-                                error "${env.name} environment failed health check"
+                                error "${env.name} environment failed health check with status ${response}"
                             }
                         } catch (Exception e) {
-                            error "${env.name} environment is not accessible"
+                            error "${env.name} environment is not accessible: ${e.message}"
+                        }
+                    }
+
+                    // Verify external access
+                    environments.each { env ->
+                        try {
+                            def response = sh(
+                                script: """
+                                    sshpass -p "dev" ssh -p ${REMOTE_PORT} ${REMOTE_USER}@${REMOTE_HOST} \
+                                    "nc -zv 0.0.0.0 ${env.port} 2>&1"
+                                """,
+                                returnStatus: true
+                            )
+                            
+                            if (response == 0) {
+                                echo "${env.name} environment is externally accessible on port ${env.port}"
+                            } else {
+                                error "${env.name} environment is not externally accessible"
+                            }
+                        } catch (Exception e) {
+                            error "${env.name} environment external access check failed: ${e.message}"
                         }
                     }
                 }
