@@ -1,5 +1,5 @@
 ---
-- name: Deploy Node.js Environment App
+- name: Deploy Node.js Environment App using Docker
   hosts: remote
   become: yes
   become_method: sudo
@@ -7,7 +7,6 @@
   vars:
     app_dir: "/home/dev/app"
     repo_url: "https://github.com/Usama306/FYP-DevOps.git"
-    node_version: "18"
     packages:
       - git
       - curl
@@ -25,12 +24,6 @@
         rm -f /var/lib/dpkg/lock-frontend
         rm -f /var/lib/dpkg/lock
         dpkg --configure -a
-      ignore_errors: yes
-
-    - name: Remove old Node.js
-      apt:
-        name: nodejs
-        state: absent
       ignore_errors: yes
 
     - name: Update apt cache
@@ -52,23 +45,6 @@
       delay: 10
       until: apt_install_result is success
 
-    - name: Download Node.js setup script
-      get_url:
-        url: "https://deb.nodesource.com/setup_{{ node_version }}.x"
-        dest: /tmp/nodesource_setup.sh
-        mode: '0755'
-
-    - name: Run Node.js setup script
-      command: /tmp/nodesource_setup.sh
-      register: node_setup
-      changed_when: node_setup.rc == 0
-
-    - name: Install Node.js
-      apt:
-        name: nodejs
-        state: present
-        update_cache: yes
-
     - name: Add Docker GPG key
       apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
@@ -89,7 +65,10 @@
 
     - name: Install Docker
       apt:
-        name: docker-ce
+        name: 
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
         state: present
         update_cache: yes
       register: docker_install_result
@@ -135,57 +114,6 @@
         recurse: yes
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-
-    - name: Create public directory
-      file:
-        path: "{{ app_dir }}/app/public"
-        state: directory
-        mode: '0755'
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-
-    - name: Display Node.js and npm versions
-      shell: |
-        node --version
-        npm --version
-      register: versions
-
-    - name: Show versions
-      debug:
-        var: versions.stdout_lines
-
-    - name: Clean npm cache
-      command: npm cache clean --force
-      args:
-        chdir: "{{ app_dir }}/app"
-      become: yes
-      become_user: "{{ ansible_user }}"
-
-    - name: Remove node_modules
-      file:
-        path: "{{ app_dir }}/app/node_modules"
-        state: absent
-
-    - name: Install Node.js dependencies
-      npm:
-        path: "{{ app_dir }}/app"
-        state: present
-      become: yes
-      become_user: "{{ ansible_user }}"
-
-    - name: Install Tailwind CSS globally
-      npm:
-        name: tailwindcss
-        global: yes
-        state: present
-      become: yes
-
-    - name: Build the CSS
-      shell: |
-        cd {{ app_dir }}/app
-        npx tailwindcss -i ./src/styles/main.css -o ./public/styles.css --minify
-      become: yes
-      become_user: "{{ ansible_user }}"
 
     - name: Stop existing Docker containers
       command: docker compose down
