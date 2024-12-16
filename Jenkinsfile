@@ -6,6 +6,19 @@ pipeline {
     }
 
     stages {
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing Ansible and dependencies...'
+                sh '''
+                    # Install Ansible if not present
+                    which ansible || (sudo apt update && sudo apt install -y ansible)
+                    
+                    # Install required Ansible collections
+                    ansible-galaxy collection install community.docker || true
+                '''
+            }
+        }
+
         stage('Clone Code') {
             steps {
                 echo 'Cloning the repository...'
@@ -25,23 +38,50 @@ pipeline {
             }
         }
 
-        stage('Build & Start Containers') {
+        stage('Ansible Deploy') {
             steps {
-                echo 'Building and starting Docker containers...'
-                script {
-                    // Stop any existing containers
-                    sh 'docker compose down || true'
+                echo 'Running Ansible playbook...'
+                sh '''
+                    # Ensure playbook files are executable
+                    chmod +x deploy.yml
                     
-                    // Build and start new containers
-                    sh 'docker compose up -d --build'
-                }
+                    # Run Ansible playbook
+                    ansible-playbook deploy.yml
+                '''
             }
         }
 
-        stage('Verify Containers') {
+        stage('Verify Deployment') {
             steps {
-                echo 'Verifying that containers are running...'
-                sh "docker ps"
+                echo 'Verifying deployment...'
+                script {
+                    // Check container status
+                    sh 'docker ps'
+                    
+                    // Verify endpoints
+                    def environments = [
+                        [port: 3001, name: 'Development'],
+                        [port: 3002, name: 'Test'],
+                        [port: 3003, name: 'Production']
+                    ]
+                    
+                    environments.each { env ->
+                        try {
+                            def response = sh(
+                                script: "curl -s -o /dev/null -w '%{http_code}' http://localhost:${env.port}",
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (response == "200") {
+                                echo "${env.name} environment is accessible on port ${env.port}"
+                            } else {
+                                error "${env.name} environment failed health check"
+                            }
+                        } catch (Exception e) {
+                            error "${env.name} environment is not accessible"
+                        }
+                    }
+                }
             }
         }
     }
@@ -52,6 +92,10 @@ pipeline {
         }
         failure {
             echo 'Deployment failed. Please check the logs.'
+        }
+        always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
     }
 }

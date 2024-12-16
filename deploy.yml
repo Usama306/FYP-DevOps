@@ -1,0 +1,93 @@
+---
+- name: Deploy Node.js Environment App
+  hosts: localhost
+  become: yes  # This allows sudo privileges
+  vars:
+    app_dir: "/home/devops/app"
+    repo_url: "https://github.com/Usama306/FYP-DevOps.git"
+
+  tasks:
+    - name: Install required system packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - git
+        - nodejs
+        - npm
+        - docker.io
+        - docker-compose
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create app directory if it doesn't exist
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Pull latest code from GitHub
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        update: yes
+        force: yes
+
+    - name: Install Node.js dependencies
+      npm:
+        path: "{{ app_dir }}/app"
+        state: present
+
+    - name: Create public directory with correct permissions
+      file:
+        path: "{{ app_dir }}/app/public"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Build the CSS
+      command: npm run build:css
+      args:
+        chdir: "{{ app_dir }}/app"
+
+    - name: Stop existing Docker containers
+      command: docker compose down
+      args:
+        chdir: "{{ app_dir }}"
+      ignore_errors: yes
+
+    - name: Build and start Docker containers
+      command: docker compose up -d --build
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Wait for containers to be running
+      wait_for:
+        timeout: 30
+
+    - name: Check container status
+      command: docker ps
+      register: container_status
+
+    - name: Display container status
+      debug:
+        var: container_status.stdout_lines
+
+    - name: Verify application endpoints
+      uri:
+        url: "http://localhost:{{ item.port }}"
+        return_content: yes
+        status_code: 200
+      loop:
+        - { port: 3001, env: "Development" }
+        - { port: 3002, env: "Test" }
+        - { port: 3003, env: "Production" }
+      register: endpoint_check
+      ignore_errors: yes 
