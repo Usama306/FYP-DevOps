@@ -1,0 +1,67 @@
+services:
+  dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: dev_env
+    environment:
+      - NODE_ENV=development
+    networks:
+      - dev_network
+    volumes:
+      - ./app:/usr/src/app
+      - dev_node_modules:/usr/src/app/node_modules
+    working_dir: /usr/src/app
+    user: "node"
+    command: npm start
+    ports:
+      - "3001:3000"
+
+  test:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: test_env
+    environment:
+      - NODE_ENV=test
+    networks:
+      - test_network
+    volumes:
+      - ./app:/usr/src/app
+      - test_node_modules:/usr/src/app/node_modules
+    working_dir: /usr/src/app
+    user: "node"
+    command: npm test
+    ports:
+      - "3002:3000"
+
+  prod:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: prod_env
+    environment:
+      - NODE_ENV=production
+    networks:
+      - prod_network
+    volumes:
+      - ./app:/usr/src/app
+      - prod_node_modules:/usr/src/app/node_modules
+    working_dir: /usr/src/app
+    user: "node"
+    command: node server.js
+    ports:
+      - "3003:3000"
+
+networks:
+  dev_network:
+  test_network:
+  prod_network:
+
+volumes:
+  dev_node_modules:
+    driver: local
+  test_node_modules:
+    driver: local
+  prod_node_modules:
+    driver: local
