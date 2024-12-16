@@ -35,18 +35,19 @@ Each environment runs in its own Docker container with isolated configurations.
 ## Deployment Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Jenkins CI    │────▶│     Ansible     │────▶│  Docker Hosts   │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                               │
-        │                                               │
-        ▼                                               ▼
-┌─────────────────┐                           ┌─────────────────┐
-│  GitHub Repo    │                           │   Containers    │
-└─────────────────┘                           │  - Dev  (3001)  │
-                                             │  - Test (3002)  │
-                                             │  - Prod (3003)  │
-                                             └─────────────────┘
+┌─────────────────┐      ┌─────────────────┐      ┌──────────────────────────────────────────┐
+│   Jenkins CI    │────▶ │     Ansible     │────▶│  Docker Hosts On Workers using Ansible   │
+└─────────────────┘      └─────────────────┘      └──────────────────────────────────────────┘
+        │                                                             │
+        │                                                             │
+        │                                                             │
+        ▼                                                             ▼
+┌─────────────────┐                                             ┌─────────────────────────┐
+│  GitHub Repo    │                                             │   Containers            │
+└─────────────────┘                                             │  - Dev  (Worker1:3001)  │
+                                                                │  - Test (Worker2:3002)  │
+                                                                │  - Prod (Worker3:3003)  │
+                                                                └─────────────────────────┘
 ```
 
 ## Project Structure
@@ -102,7 +103,7 @@ Each environment runs in its own Docker container with isolated configurations.
 2. **Jenkins Pipeline**:
    - Push changes to GitHub
    - Jenkins automatically triggers the pipeline
-   - Access Jenkins at: `http://localhost:8080` # Change this to your Jenkins server URL Currnrtly it is running on local machine using Oracle VM VirtualBox
+   - Access Jenkins at: `http://localhost:8080`  Change this to your Jenkins server URL Currnrtly it is running on local machine using Oracle VM VirtualBox Port Forwarding
 
 3. **Manual Deployment**:
    ```bash
@@ -165,19 +166,3 @@ Each environment runs in its own Docker container with isolated configurations.
 2. **Application Data**:
    - Regular backups of application state
    - Version control for configurations
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For support and questions, please open an issue in the GitHub repository. 
