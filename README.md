@@ -102,7 +102,7 @@ Each environment runs in its own Docker container with isolated configurations.
 2. **Jenkins Pipeline**:
    - Push changes to GitHub
    - Jenkins automatically triggers the pipeline
-   - Access Jenkins at: `http://your-jenkins-server:8080`
+   - Access Jenkins at: `http://localhost:8080` # Change this to your Jenkins server URL Currnrtly it is running on local machine using Oracle VM VirtualBox
 
 3. **Manual Deployment**:
    ```bash
