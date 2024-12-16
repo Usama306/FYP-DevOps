@@ -7,6 +7,7 @@
   vars:
     app_dir: "/home/dev/app"
     repo_url: "https://github.com/Usama306/FYP-DevOps.git"
+    ansible_remote_tmp: /tmp/ansible-jenkins
     packages:
       - git
       - curl
@@ -17,6 +18,16 @@
       - gnupg
       - lsb-release
       - software-properties-common
+
+  pre_tasks:
+    - name: Create Ansible temp directory
+      file:
+        path: "{{ ansible_remote_tmp }}"
+        state: directory
+        mode: '0777'
+        owner: jenkins
+        group: jenkins
+      ignore_errors: yes
 
   tasks:
     - name: Wait for apt lock to be released
@@ -181,14 +192,40 @@
       debug:
         var: container_status.stdout_lines
 
-    - name: Verify application endpoints
-      uri:
-        url: "http://localhost:{{ item.port }}"
-        return_content: yes
-        status_code: 200
+    - name: Wait for applications to be ready
+      wait_for:
+        host: localhost
+        port: "{{ item.port }}"
+        timeout: 60
+      loop:
+        - { port: 3001 }
+        - { port: 3002 }
+        - { port: 3003 }
+      ignore_errors: yes
+
+    - name: Verify application endpoints using curl
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost:{{ item.port }}
+      register: curl_result
+      until: curl_result.stdout == "200"
+      retries: 6
+      delay: 10
       loop:
         - { port: 3001, env: "Development" }
         - { port: 3002, env: "Test" }
         - { port: 3003, env: "Production" }
-      register: endpoint_check
       ignore_errors: yes
+
+    - name: Display endpoint status
+      debug:
+        msg: "{{ item.env }} environment (Port {{ item.port }}) status: {{ curl_result.results[ansible_loop.index0].stdout }}"
+      loop:
+        - { port: 3001, env: "Development" }
+        - { port: 3002, env: "Test" }
+        - { port: 3003, env: "Production" }
+      ignore_errors: yes
+
+    - name: Set deployment status
+      set_fact:
+        deployment_success: true
+      when: curl_result.results | map(attribute='stdout') | map('regex_replace', '^(.*)$', '\1') | list | join(',') is search('200')
