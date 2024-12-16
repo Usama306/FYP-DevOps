@@ -27,6 +27,12 @@
         dpkg --configure -a
       ignore_errors: yes
 
+    - name: Remove old Node.js
+      apt:
+        name: nodejs
+        state: absent
+      ignore_errors: yes
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -48,19 +54,10 @@
 
     - name: Install Node.js repository
       shell: |
-        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | sudo -E bash -
+        curl -fsSL https://deb.nodesource.com/setup_{{ node_version }}.x | bash -
+        apt-get install -y nodejs
       args:
-        creates: /etc/apt/sources.list.d/nodesource.list
-
-    - name: Install Node.js and npm
-      apt:
-        name: nodejs
-        state: present
-        update_cache: yes
-      register: nodejs_install
-      retries: 3
-      delay: 5
-      until: nodejs_install is success
+        warn: false
 
     - name: Add Docker GPG key
       apt_key:
@@ -137,13 +134,6 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
 
-    - name: Install Node.js dependencies
-      npm:
-        path: "{{ app_dir }}/app"
-        state: present
-      become: yes
-      become_user: "{{ ansible_user }}"
-
     - name: Display Node.js and npm versions
       shell: |
         node --version
@@ -154,14 +144,31 @@
       debug:
         var: versions.stdout_lines
 
-    - name: Build the CSS
-      command: npm run build:css
+    - name: Clean npm cache
+      command: npm cache clean --force
       args:
         chdir: "{{ app_dir }}/app"
       become: yes
       become_user: "{{ ansible_user }}"
-      environment:
-        NODE_OPTIONS: "--no-experimental-fetch"
+
+    - name: Remove node_modules
+      file:
+        path: "{{ app_dir }}/app/node_modules"
+        state: absent
+
+    - name: Install Node.js dependencies
+      npm:
+        path: "{{ app_dir }}/app"
+        state: present
+      become: yes
+      become_user: "{{ ansible_user }}"
+
+    - name: Build the CSS
+      shell: |
+        cd {{ app_dir }}/app
+        npx tailwindcss -i ./src/styles/main.css -o ./public/styles.css --minify
+      become: yes
+      become_user: "{{ ansible_user }}"
 
     - name: Stop existing Docker containers
       command: docker compose down
