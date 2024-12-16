@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        APP_DIR = "${WORKSPACE}"
+        DOCKER_GROUP = sh(script: 'getent group docker | cut -d: -f3', returnStdout: true).trim()
     }
 
     stages {
@@ -13,15 +13,26 @@ pipeline {
             }
         }
 
+        stage('Docker Permissions') {
+            steps {
+                echo 'Setting up Docker permissions...'
+                sh '''
+                    # Add jenkins user to docker group if not already added
+                    groups jenkins | grep -q docker || newgrp docker
+                    # Ensure Docker socket has correct permissions
+                    [ -S /var/run/docker.sock ] && [ $(stat -c '%g' /var/run/docker.sock) -eq ${DOCKER_GROUP} ]
+                '''
+            }
+        }
+
         stage('Build & Start Containers') {
             steps {
                 echo 'Building and starting Docker containers...'
                 script {
-                    sh 'sudo usermod -aG docker jenkins || true'
-                    sh 'sudo chmod 666 /var/run/docker.sock || true'
-                    
+                    // Stop any existing containers
                     sh 'docker-compose down || true'
                     
+                    // Build and start new containers
                     sh 'docker-compose up -d --build'
                 }
             }
