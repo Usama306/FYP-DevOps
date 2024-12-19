@@ -13,12 +13,34 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo 'Installing Ansible and dependencies...'
+                script {
+                    // Check if Ansible is available
+                    def hasAnsible = sh(script: 'which ansible', returnStatus: true) == 0
+                    def hasSshpass = sh(script: 'which sshpass', returnStatus: true) == 0
+                    
+                    if (!hasAnsible || !hasSshpass) {
+                        error """
+                            Required dependencies are missing. Please ensure the following are installed on the Jenkins server:
+                            - ansible
+                            - sshpass
+                            
+                            You can install them using:
+                            sudo apt update && sudo apt install -y ansible sshpass
+                        """
+                    }
+                }
+                
+                // Install Ansible collections without sudo
                 sh '''
-                    # Install Ansible if not present
-                    ansible --version || sudo -n apt update && sudo -n apt install -y ansible sshpass
+                    # Create local ansible collections directory if it doesn't exist
+                    mkdir -p ~/.ansible/collections
                     
                     # Install required Ansible collections
-                    ansible-galaxy collection install community.docker || true
+                    ansible-galaxy collection install community.docker -p ~/.ansible/collections || true
+                    
+                    # Display versions for debugging
+                    ansible --version
+                    ansible-galaxy collection list
                 '''
             }
         }
