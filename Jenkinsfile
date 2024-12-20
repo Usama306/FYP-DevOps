@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        REMOTE_HOST = 'pve.netbird.cloud'
+        REMOTE_HOST = 'dev.netbird.selfhosted'
         REMOTE_USER = 'dev'
         REMOTE_PORT = '2222'
         ANSIBLE_HOST_KEY_CHECKING = 'False'
