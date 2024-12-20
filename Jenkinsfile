@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        REMOTE_HOST = '100.114.50.70'
-        REMOTE_USER = 'dev'
-        REMOTE_PORT = '22'
+        REMOTE_HOST = 'localhost'
+        REMOTE_USER = 'devops'
+        REMOTE_PORT = '2222'
         ANSIBLE_HOST_KEY_CHECKING = 'False'
         ANSIBLE_BECOME_ASK_PASS = 'False'
     }
