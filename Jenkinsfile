@@ -4,7 +4,7 @@ pipeline {
     environment {
         REMOTE_HOST = 'dev.netbird.selfhosted'
         REMOTE_USER = 'dev'
-        REMOTE_PORT = '2222'
+        REMOTE_PORT = '22'
         ANSIBLE_HOST_KEY_CHECKING = 'False'
         ANSIBLE_BECOME_ASK_PASS = 'False'
     }
